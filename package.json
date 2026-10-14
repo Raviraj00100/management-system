@@ -1,0 +1,25 @@
+{
+  "name": "college-permission-portal",
+  "version": "1.0.0",
+  "description": "College OD, Leave & Hostel Outpass Management System",
+  "scripts": {
+    "postinstall": "cd server && npm install && npx prisma generate && cd ../client && npm install",
+    "seed": "cd server && npm run seed",
+    "test": "cd server && npm test",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "start": "cd server && npm start",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm run dev"
+  },
+  "keywords": [
+    "college",
+    "permission-portal",
+    "hostel-outpass",
+    "od-system",
+    "workflow"
+  ],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,267 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                String             @id @default(cuid())
+  email             String             @unique
+  password          String
+  name              String
+  role              String             // "STUDENT", "CLASS_ADVISOR", "HOD", "WARDEN", "ADMIN"
+  phone             String?
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  studentProfile    StudentProfile?
+  staffProfile      StaffProfile?
+  applications      Application[]      @relation("Applicant")
+  approvalHistories ApprovalHistory[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+}
+
+model StudentProfile {
+  id              String        @id @default(cuid())
+  userId          String        @unique
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId       String        @unique // e.g. "2024CS101"
+  departmentId    String
+  department      Department    @relation(fields: [departmentId], references: [id])
+  classId         String
+  class           Class         @relation(fields: [classId], references: [id])
+  academicYearId  String
+  academicYear    AcademicYear  @relation(fields: [academicYearId], references: [id])
+  isHosteller     Boolean       @default(false)
+  hostelId        String?
+  hostel          Hostel?       @relation(fields: [hostelId], references: [id])
+  roomNumber      String?
+  parentName      String?
+  parentPhone     String?
+  address         String?
+}
+
+model StaffProfile {
+  id                 String              @id @default(cuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffCode          String              @unique // e.g. "FAC-001"
+  designation        String?
+  departmentId       String?
+  department         Department?         @relation(fields: [departmentId], references: [id])
+  advisorAssignments AdvisorAssignment[]
+  hodAssignments     HODAssignment[]
+  wardenAssignments  WardenAssignment[]
+}
+
+model Department {
+  id              String           @id @default(cuid())
+  name            String
+  code            String           @unique
+  classes         Class[]
+  students        StudentProfile[]
+  staff           StaffProfile[]
+  hodAssignments  HODAssignment[]
+}
+
+model AcademicYear {
+  id                 String              @id @default(cuid())
+  name               String              @unique
+  isCurrent          Boolean             @default(true)
+  classes            Class[]
+  students           StudentProfile[]
+  advisorAssignments AdvisorAssignment[]
+  hodAssignments     HODAssignment[]
+  wardenAssignments  WardenAssignment[]
+}
+
+model Class {
+  id                 String              @id @default(cuid())
+  name               String
+  departmentId       String
+  department         Department          @relation(fields: [departmentId], references: [id])
+  semester           Int
+  section            String
+  academicYearId     String
+  academicYear       AcademicYear        @relation(fields: [academicYearId], references: [id])
+  students           StudentProfile[]
+  advisorAssignments AdvisorAssignment[]
+}
+
+model Hostel {
+  id                String             @id @default(cuid())
+  name              String
+  code              String             @unique
+  gender            String             // "BOYS", "GIRLS", "ALL"
+  wardenName        String?
+  students          StudentProfile[]
+  wardenAssignments WardenAssignment[]
+}
+
+model AdvisorAssignment {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  classId        String
+  class          Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, academicYearId])
+}
+
+model HODAssignment {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  departmentId   String
+  department     Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, academicYearId])
+}
+
+model WardenAssignment {
+  id             String       @id @default(cuid())
+  staffProfileId String
+  staffProfile   StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
+  hostelId       String
+  hostel         Hostel       @relation(fields: [hostelId], references: [id], onDelete: Cascade)
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+
+  @@unique([staffProfileId, hostelId, academicYearId])
+}
+
+model Application {
+  id                 String                  @id @default(cuid())
+  applicationNumber  String                  @unique
+  applicantId        String
+  applicant          User                    @relation("Applicant", fields: [applicantId], references: [id])
+  type               String                  // "OD", "LEAVE", "OUTPASS"
+  status             String                  // "DRAFT", "PENDING_CLASS_ADVISOR", "PENDING_HOD", "PENDING_WARDEN", "APPROVED", "REJECTED", "RETURNED_FOR_CORRECTION", "CANCELLED", "OUTPASS_ISSUED", "RETURNED_TO_HOSTEL", "OVERDUE_RETURN"
+  currentStage       String                  // "STUDENT", "CLASS_ADVISOR", "HOD", "WARDEN", "COMPLETED"
+
+  // Informational snapshots for fast querying & reports
+  studentName        String
+  studentRegNo       String
+  departmentName     String
+  className          String
+  hostelName         String?
+
+  // OD specific
+  startDate          DateTime?
+  endDate            DateTime?
+  purpose            String?
+  eventName          String?
+  destination        String?
+  additionalRemarks  String?
+
+  // Leave specific
+  leaveType          String?                 // "PERSONAL", "MEDICAL", "EMERGENCY", "OTHER"
+  reason             String?
+  contactNumber      String?
+  parentContact      String?
+
+  // Outpass specific
+  outpassType        String?                 // "DAY_OUT", "OVERNIGHT"
+  departureTime      DateTime?
+  expectedReturnTime DateTime?
+  actualReturnTime   DateTime?
+  emergencyContact   String?
+  isOverdue          Boolean                 @default(false)
+
+  // Rejection & return remarks
+  rejectionReason    String?
+  correctionRemarks  String?
+
+  // Verification QR token
+  qrCodeToken        String                  @unique
+
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  attachments        ApplicationAttachment[]
+  approvalSteps      ApprovalStep[]
+  approvalHistory    ApprovalHistory[]
+}
+
+model ApplicationAttachment {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fileName      String
+  originalName  String
+  fileSize      Int
+  mimeType      String
+  storagePath   String
+  createdAt     DateTime    @default(now())
+}
+
+model ApprovalStep {
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  stepOrder      Int
+  stage          String      // "CLASS_ADVISOR", "HOD", "WARDEN"
+  status         String      // "PENDING", "APPROVED", "REJECTED", "RETURNED", "SKIPPED"
+  assignedRole   String
+  assignedUserId String?
+  actionByUserId String?
+  actionAt       DateTime?
+  remarks        String?
+}
+
+model ApprovalHistory {
+  id             String      @id @default(cuid())
+  applicationId  String
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  actorId        String
+  actor          User        @relation(fields: [actorId], references: [id])
+  actorName      String
+  actorRole      String
+  action         String      // "SUBMITTED", "APPROVED", "REJECTED", "RETURNED", "RESUBMITTED", "CANCELLED", "OUTPASS_ISSUED", "RETURNED_TO_HOSTEL"
+  previousStatus String
+  newStatus      String
+  remarks        String?
+  createdAt      DateTime    @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // "INFO", "SUCCESS", "WARNING", "DANGER"
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  updatedAt   DateTime @default(now())
+}
