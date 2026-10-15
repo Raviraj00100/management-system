@@ -20,6 +20,9 @@
     "od-system",
     "workflow"
   ],
+  "allowScripts": {
+    "esbuild": true
+  },
   "author": "",
   "license": "ISC"
 }
